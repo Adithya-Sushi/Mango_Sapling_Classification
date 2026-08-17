@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "MangoLeafAI",
+    "slug": "mangoleafai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+
+    "icon": "./assets/images/icon.png",
+
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#208AEF"
+    },
+
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundColor": "#E6F4FE"
+      },
+      "package": "com.vit.mangoleafai"
+    },
+
+    "ios": {
+      "supportsTablet": false
+    },
+
+    "web": {
+      "favicon": "./assets/images/favicon.png"
+    },
+
+    "plugins": [
+      "expo-asset",
+      "expo-camera",
+      "expo-image-picker",
+      "expo-media-library"
+    ]
+  }
+}
