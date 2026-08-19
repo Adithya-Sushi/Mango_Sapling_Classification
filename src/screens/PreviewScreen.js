@@ -11,6 +11,7 @@ import {
 } from "react-native";
 
 import { predictMango } from "../ai/runModel";
+import { savePrediction } from "../storage/history";
 
 export default function PreviewScreen({
   route,
@@ -28,9 +29,7 @@ export default function PreviewScreen({
   const runPrediction = async () => {
     if (!image) {
       setLoading(false);
-      setError(
-        "No image was selected."
-      );
+      setError("No image was selected.");
       return;
     }
 
@@ -38,41 +37,21 @@ export default function PreviewScreen({
       setLoading(true);
       setError(null);
 
-      console.log(
-        "================================"
-      );
-      console.log(
-        "PREVIEW SCREEN"
-      );
-      console.log(
-        "Image:",
-        image
-      );
-      console.log(
-        "Starting prediction..."
-      );
-      console.log(
-        "================================"
-      );
+      console.log("================================");
+      console.log("PREVIEW SCREEN");
+      console.log("Image:", image);
+      console.log("Starting prediction...");
+      console.log("================================");
 
-      const result =
-        await predictMango(image);
+      const result = await predictMango(image);
 
-      console.log(
-        "================================"
-      );
-      console.log(
-        "PREDICTION RESULT"
-      );
+      console.log("================================");
+      console.log("PREDICTION RESULT");
       console.log(result);
-      console.log(
-        "================================"
-      );
+      console.log("================================");
 
       if (!result) {
-        setError(
-          "Prediction returned no result."
-        );
+        setError("Prediction returned no result.");
         return;
       }
 
@@ -84,32 +63,60 @@ export default function PreviewScreen({
         return;
       }
 
-      console.log(
-        "Valid mango leaf detected."
-      );
+      console.log("Valid mango leaf detected.");
 
-      console.log(
-        "Opening Result Screen..."
-      );
+      /*
+       * Save prediction to local history.
+       *
+       * History is separate from prediction.
+       * If saving fails, the prediction should
+       * still continue to the Result screen.
+       */
+      try {
+        console.log("================================");
+        console.log("SAVING PREDICTION TO HISTORY");
+        console.log("================================");
 
-      navigation.replace(
-        "Result",
-        {
+        const savedPrediction = await savePrediction({
           image: image,
           result: result,
+        });
+
+        if (savedPrediction) {
+          console.log(
+            "Prediction saved to history."
+          );
+
+          console.log(
+            "History ID:",
+            savedPrediction.id
+          );
+        } else {
+          console.log(
+            "History save returned no item."
+          );
         }
-      );
+      } catch (historyError) {
+        console.log("================================");
+        console.log("HISTORY SAVE FAILED");
+        console.log(historyError);
+        console.log(
+          "Continuing to Result Screen..."
+        );
+        console.log("================================");
+      }
+
+      console.log("Opening Result Screen...");
+
+      navigation.replace("Result", {
+        image: image,
+        result: result,
+      });
     } catch (error) {
-      console.log(
-        "================================"
-      );
-      console.log(
-        "PREVIEW PREDICTION ERROR"
-      );
+      console.log("================================");
+      console.log("PREVIEW PREDICTION ERROR");
       console.log(error);
-      console.log(
-        "================================"
-      );
+      console.log("================================");
 
       setError(
         error?.message ||
@@ -121,9 +128,7 @@ export default function PreviewScreen({
   };
 
   const tryAgain = () => {
-    navigation.replace(
-      "Gallery"
-    );
+    navigation.replace("Gallery");
   };
 
   const goBack = () => {
@@ -132,17 +137,11 @@ export default function PreviewScreen({
 
   if (loading) {
     return (
-      <SafeAreaView
-        style={styles.container}
-      >
-        <View
-          style={styles.loadingContainer}
-        >
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
           {image && (
             <Image
-              source={{
-                uri: image,
-              }}
+              source={{ uri: image }}
               style={styles.previewImage}
               resizeMode="contain"
             />
@@ -154,17 +153,12 @@ export default function PreviewScreen({
             style={styles.loader}
           />
 
-          <Text
-            style={styles.loadingTitle}
-          >
+          <Text style={styles.loadingTitle}>
             Analyzing Image
           </Text>
 
-          <Text
-            style={styles.loadingText}
-          >
-            MobileNetV2 is processing
-            your image...
+          <Text style={styles.loadingText}>
+            MobileNetV2 is processing your image...
           </Text>
         </View>
       </SafeAreaView>
@@ -173,58 +167,40 @@ export default function PreviewScreen({
 
   if (error) {
     return (
-      <SafeAreaView
-        style={styles.container}
-      >
-        <View
-          style={styles.errorContainer}
-        >
-          {image && (
-            <Image
-              source={{
-                uri: image,
-              }}
-              style={styles.previewImage}
-              resizeMode="contain"
-            />
-          )}
-
-          <View
-            style={styles.errorIcon}
-          >
-            <Text
-              style={styles.errorIconText}
-            >
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <View style={styles.errorIcon}>
+            <Text style={styles.errorIconText}>
               !
             </Text>
           </View>
 
-          <Text
-            style={styles.errorTitle}
-          >
+          <Text style={styles.errorTitle}>
             Image Not Recognized
           </Text>
 
-          <Text
-            style={styles.errorMessage}
-          >
+          <Text style={styles.errorMessage}>
             {error}
           </Text>
 
-          <Text
-            style={styles.errorHint}
-          >
-            Please select a clear mango
-            leaf image and try again.
+          <Text style={styles.errorHint}>
+            Please select a clear mango leaf image
+            and try again.
           </Text>
+
+          {image && (
+            <Image
+              source={{ uri: image }}
+              style={styles.errorImage}
+              resizeMode="contain"
+            />
+          )}
 
           <TouchableOpacity
             style={styles.primaryButton}
             onPress={tryAgain}
           >
-            <Text
-              style={styles.primaryButtonText}
-            >
+            <Text style={styles.primaryButtonText}>
               Try Another Image
             </Text>
           </TouchableOpacity>
@@ -233,9 +209,7 @@ export default function PreviewScreen({
             style={styles.secondaryButton}
             onPress={goBack}
           >
-            <Text
-              style={styles.secondaryButtonText}
-            >
+            <Text style={styles.secondaryButtonText}>
               Go Back
             </Text>
           </TouchableOpacity>
@@ -245,15 +219,9 @@ export default function PreviewScreen({
   }
 
   return (
-    <SafeAreaView
-      style={styles.container}
-    >
-      <View
-        style={styles.centerContainer}
-      >
-        <Text
-          style={styles.title}
-        >
+    <SafeAreaView style={styles.container}>
+      <View style={styles.centerContainer}>
+        <Text style={styles.title}>
           Preparing Result
         </Text>
 
@@ -266,134 +234,140 @@ export default function PreviewScreen({
   );
 }
 
-const styles =
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: "#F7F9F8",
-    },
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F7F9F8",
+  },
 
-    loadingContainer: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 25,
-    },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 25,
+  },
 
-    errorContainer: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 25,
-    },
+  errorContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 25,
+  },
 
-    centerContainer: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-    },
+  centerContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-    previewImage: {
-      width: "90%",
-      height: 300,
-      borderRadius: 20,
-      backgroundColor: "#E8F1E8",
-      marginBottom: 25,
-    },
+  previewImage: {
+    width: "90%",
+    height: 300,
+    borderRadius: 20,
+    backgroundColor: "#E8F1E8",
+    marginBottom: 25,
+  },
 
-    loader: {
-      marginTop: 5,
-      marginBottom: 15,
-    },
+  errorImage: {
+    width: "80%",
+    height: 180,
+    borderRadius: 18,
+    backgroundColor: "#E8F1E8",
+    marginTop: 20,
+  },
 
-    loadingTitle: {
-      fontSize: 25,
-      fontWeight: "700",
-      color: "#2D7D32",
-      marginBottom: 8,
-    },
+  loader: {
+    marginBottom: 15,
+  },
 
-    loadingText: {
-      fontSize: 16,
-      color: "#777777",
-      textAlign: "center",
-    },
+  loadingTitle: {
+    fontSize: 25,
+    fontWeight: "700",
+    color: "#2D7D32",
+    marginBottom: 8,
+  },
 
-    errorIcon: {
-      width: 65,
-      height: 65,
-      borderRadius: 33,
-      backgroundColor: "#E57373",
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 18,
-    },
+  loadingText: {
+    fontSize: 16,
+    color: "#777777",
+    textAlign: "center",
+  },
 
-    errorIconText: {
-      color: "#FFFFFF",
-      fontSize: 40,
-      fontWeight: "700",
-    },
+  errorIcon: {
+    width: 65,
+    height: 65,
+    borderRadius: 33,
+    backgroundColor: "#E57373",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 18,
+  },
 
-    errorTitle: {
-      fontSize: 27,
-      fontWeight: "700",
-      color: "#333333",
-      textAlign: "center",
-      marginBottom: 12,
-    },
+  errorIconText: {
+    color: "#FFFFFF",
+    fontSize: 40,
+    fontWeight: "700",
+  },
 
-    errorMessage: {
-      fontSize: 17,
-      lineHeight: 25,
-      color: "#555555",
-      textAlign: "center",
-      marginHorizontal: 15,
-    },
+  errorTitle: {
+    fontSize: 27,
+    fontWeight: "700",
+    color: "#333333",
+    textAlign: "center",
+    marginBottom: 12,
+  },
 
-    errorHint: {
-      fontSize: 15,
-      lineHeight: 22,
-      color: "#777777",
-      textAlign: "center",
-      marginTop: 10,
-      marginHorizontal: 20,
-    },
+  errorMessage: {
+    fontSize: 17,
+    lineHeight: 25,
+    color: "#555555",
+    textAlign: "center",
+    marginHorizontal: 15,
+  },
 
-    primaryButton: {
-      width: "90%",
-      minHeight: 58,
-      backgroundColor: "#2D7D32",
-      borderRadius: 14,
-      alignItems: "center",
-      justifyContent: "center",
-      marginTop: 25,
-    },
+  errorHint: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: "#777777",
+    textAlign: "center",
+    marginTop: 10,
+    marginHorizontal: 20,
+  },
 
-    primaryButtonText: {
-      color: "#FFFFFF",
-      fontSize: 17,
-      fontWeight: "700",
-    },
+  primaryButton: {
+    width: "90%",
+    minHeight: 58,
+    backgroundColor: "#2D7D32",
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 25,
+  },
 
-    secondaryButton: {
-      minHeight: 50,
-      alignItems: "center",
-      justifyContent: "center",
-      marginTop: 10,
-      paddingHorizontal: 20,
-    },
+  primaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "700",
+  },
 
-    secondaryButtonText: {
-      color: "#2D7D32",
-      fontSize: 16,
-      fontWeight: "600",
-    },
+  secondaryButton: {
+    minHeight: 50,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+    paddingHorizontal: 20,
+  },
 
-    title: {
-      fontSize: 24,
-      fontWeight: "700",
-      color: "#2D7D32",
-      marginBottom: 20,
-    },
-  });
+  secondaryButtonText: {
+    color: "#2D7D32",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  title: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#2D7D32",
+    marginBottom: 20,
+  },
+});
