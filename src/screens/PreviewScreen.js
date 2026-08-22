@@ -1,174 +1,228 @@
-import {
-  useEffect,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 
 import {
   ActivityIndicator,
-  Alert,
   Image,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 
-import { predictMango } from "../ai/runModel";
 import { MODELS } from "../ai/modelConfig";
+import { predictMango } from "../ai/runModel";
 import { useModelSelection } from "../context/ModelContext";
+import { savePrediction } from "../storage/history";
 
 export default function PreviewScreen({
   route,
   navigation,
 }) {
-  const image =
-    route?.params?.image;
+  const image = route?.params?.image;
 
-  const { selectedModelKey } =
-    useModelSelection();
+  const { selectedModelKey } = useModelSelection();
+  const modelConfig = MODELS[selectedModelKey] || MODELS.mobilenetv2;
 
-  const modelConfig =
-    MODELS[selectedModelKey];
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [result, setResult] =
-    useState(null);
-
-  const runPrediction =
-    async () => {
-      if (!image) {
-        Alert.alert(
-          "Error",
-          "No image was selected."
-        );
-
-        navigation.goBack();
-
-        return;
-      }
-
-      try {
-        setLoading(true);
-
-        console.log(
-          "================================"
-        );
-
-        console.log(
-          "PREVIEW SCREEN"
-        );
-
-        console.log(
-          "Selected image:",
-          image
-        );
-
-        const prediction =
-          await predictMango(
-            image,
-            selectedModelKey
-          );
-
-        setResult(prediction);
-      } catch (error) {
-        console.log(
-          "Preview Prediction Error:",
-          error
-        );
-
-        setResult({
-          valid: false,
-          error:
-            error?.message ||
-            "Prediction failed.",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     runPrediction();
   }, []);
 
-  const scanAnother =
-    () => {
-      navigation.replace(
-        "Gallery"
+  const runPrediction = async () => {
+    if (!image) {
+      setLoading(false);
+      setError("No image was selected.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log("================================");
+      console.log("PREVIEW SCREEN");
+      console.log("Image:", image);
+      console.log("Model:", modelConfig?.name || selectedModelKey);
+      console.log("Starting prediction...");
+      console.log("================================");
+
+      const result = await predictMango(image, selectedModelKey);
+
+      console.log("================================");
+      console.log("PREDICTION RESULT");
+      console.log(result);
+      console.log("================================");
+
+      if (!result) {
+        setError("Prediction returned no result.");
+        return;
+      }
+
+      if (!result.valid) {
+        setError(
+          result.error ||
+            "The selected image does not appear to contain a mango leaf."
+        );
+        return;
+      }
+
+      console.log("Valid mango leaf detected.");
+
+      /*
+       * Save prediction to local history.
+       *
+       * History is separate from prediction.
+       * If saving fails, the prediction should
+       * still continue to the Result screen.
+       */
+      try {
+        console.log("================================");
+        console.log("SAVING PREDICTION TO HISTORY");
+        console.log("================================");
+
+        const savedPrediction = await savePrediction({
+          image: image,
+          result: {
+            ...result,
+            model: modelConfig?.name || "MobileNetV2",
+          },
+        });
+
+        if (savedPrediction) {
+          console.log(
+            "Prediction saved to history."
+          );
+
+          console.log(
+            "History ID:",
+            savedPrediction.id
+          );
+        } else {
+          console.log(
+            "History save returned no item."
+          );
+        }
+      } catch (historyError) {
+        console.log("================================");
+        console.log("HISTORY SAVE FAILED");
+        console.log(historyError);
+        console.log(
+          "Continuing to Result Screen..."
+        );
+        console.log("================================");
+      }
+
+      console.log("Opening Result Screen...");
+
+      navigation.replace("Result", {
+        image: image,
+        result: {
+          ...result,
+          model: modelConfig?.name || "MobileNetV2",
+        },
+      });
+    } catch (error) {
+      console.log("================================");
+      console.log("PREVIEW PREDICTION ERROR");
+      console.log(error);
+      console.log("================================");
+
+      setError(
+        error?.message ||
+          "Unable to analyze the image."
       );
-    };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const tryAgain = () => {
+    navigation.replace("Gallery");
+  };
+
+  const goBack = () => {
+    navigation.goBack();
+  };
 
   if (loading) {
     return (
-      <SafeAreaView
-        style={styles.loadingContainer}
-      >
-        <ActivityIndicator
-          size="large"
-          color="#2D7D32"
-        />
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          {image && (
+            <Image
+              source={{ uri: image }}
+              style={styles.previewImage}
+              resizeMode="contain"
+            />
+          )}
 
-        <Text
-          style={styles.loadingText}
-        >
-          Analyzing leaf...
-        </Text>
+          <ActivityIndicator
+            size="large"
+            color="#2D7D32"
+            style={styles.loader}
+          />
 
-        <Text
-          style={styles.loadingSubText}
-        >
-          {modelConfig.name} is processing the image
-        </Text>
+          <Text style={styles.loadingTitle}>
+            Analyzing Image
+          </Text>
+
+          <Text style={styles.loadingText}>
+            {modelConfig?.name || "MobileNetV2"} is processing your image...
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }
 
-  if (!result?.valid) {
+  if (error) {
     return (
-      <SafeAreaView
-        style={styles.container}
-      >
-        <View
-          style={styles.invalidContainer}
-        >
-          <Text
-            style={styles.invalidIcon}
-          >
-            !
-          </Text>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <View style={styles.errorIcon}>
+            <Text style={styles.errorIconText}>
+              !
+            </Text>
+          </View>
 
-          <Text
-            style={styles.invalidTitle}
-          >
+          <Text style={styles.errorTitle}>
             Image Not Recognized
           </Text>
 
-          <Text
-            style={styles.invalidText}
-          >
-            The selected image does not
-            appear to contain a mango leaf.
+          <Text style={styles.errorMessage}>
+            {error}
           </Text>
 
-          <Text
-            style={styles.invalidHint}
-          >
-            Please select a clear mango leaf
-            image and try again.
+          <Text style={styles.errorHint}>
+            Please select a clear mango leaf image
+            and try again.
           </Text>
+
+          {image && (
+            <Image
+              source={{ uri: image }}
+              style={styles.errorImage}
+              resizeMode="contain"
+            />
+          )}
 
           <TouchableOpacity
             style={styles.primaryButton}
-            onPress={scanAnother}
+            onPress={tryAgain}
           >
-            <Text
-              style={styles.primaryButtonText}
-            >
+            <Text style={styles.primaryButtonText}>
               Try Another Image
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={goBack}
+          >
+            <Text style={styles.secondaryButtonText}>
+              Go Back
             </Text>
           </TouchableOpacity>
         </View>
@@ -177,425 +231,155 @@ export default function PreviewScreen({
   }
 
   return (
-    <SafeAreaView
-      style={styles.container}
-    >
-      <ScrollView
-        showsVerticalScrollIndicator={
-          false
-        }
-        contentContainerStyle={
-          styles.scrollContent
-        }
-      >
-        <Text
-          style={styles.header}
-        >
-          Prediction Result
+    <SafeAreaView style={styles.container}>
+      <View style={styles.centerContainer}>
+        <Text style={styles.title}>
+          Preparing Result
         </Text>
 
-        <Image
-          source={{
-            uri: image,
-          }}
-          style={styles.image}
-          resizeMode="contain"
+        <ActivityIndicator
+          size="large"
+          color="#2D7D32"
         />
-
-        <View
-          style={styles.resultCard}
-        >
-          <Text
-            style={styles.resultLabel}
-          >
-            Predicted Variety
-          </Text>
-
-          <Text
-            style={styles.prediction}
-          >
-            {result.prediction}
-          </Text>
-
-          <Text
-            style={styles.confidence}
-          >
-            Confidence:{" "}
-            {result.confidence.toFixed(
-              2
-            )}
-            %
-          </Text>
-
-          <View
-            style={styles.progressBackground}
-          >
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width:
-                    `${Math.min(
-                      result.confidence,
-                      100
-                    )}%`,
-                },
-              ]}
-            />
-          </View>
-        </View>
-
-        <View
-          style={styles.infoCard}
-        >
-          <Text
-            style={styles.sectionTitle}
-          >
-            Model Information
-          </Text>
-
-          <View
-            style={styles.infoRow}
-          >
-            <Text
-              style={styles.infoLabel}
-            >
-              Model
-            </Text>
-
-            <Text
-              style={styles.infoValue}
-            >
-              {modelConfig.name}
-            </Text>
-          </View>
-
-          <View
-            style={styles.infoRow}
-          >
-            <Text
-              style={styles.infoLabel}
-            >
-              Inference Time
-            </Text>
-
-            <Text
-              style={styles.infoValue}
-            >
-              {result.inferenceTime} ms
-            </Text>
-          </View>
-
-          <View
-            style={styles.infoRow}
-          >
-            <Text
-              style={styles.infoLabel}
-            >
-              Classes
-            </Text>
-
-            <Text
-              style={styles.infoValue}
-            >
-              25 varieties
-            </Text>
-          </View>
-        </View>
-
-        <View
-          style={styles.topCard}
-        >
-          <Text
-            style={styles.sectionTitle}
-          >
-            Top Predictions
-          </Text>
-
-          {result.topPredictions.map(
-            (item, index) => (
-              <View
-                key={item.index}
-                style={styles.topRow}
-              >
-                <View
-                  style={styles.rankCircle}
-                >
-                  <Text
-                    style={styles.rankText}
-                  >
-                    {index + 1}
-                  </Text>
-                </View>
-
-                <Text
-                  style={styles.topLabel}
-                  numberOfLines={1}
-                >
-                  {item.label}
-                </Text>
-
-                <Text
-                  style={styles.topConfidence}
-                >
-                  {item.confidence.toFixed(
-                    2
-                  )}
-                  %
-                </Text>
-              </View>
-            )
-          )}
-        </View>
-
-        <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={scanAnother}
-        >
-          <Text
-            style={styles.primaryButtonText}
-          >
-            Scan Another Leaf
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
 
-const styles =
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: "#F7F9F8",
-    },
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F7F9F8",
+  },
 
-    scrollContent: {
-      padding: 24,
-      paddingBottom: 40,
-    },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 25,
+  },
 
-    header: {
-      fontSize: 32,
-      fontWeight: "500",
-      color: "#2D7D32",
-      textAlign: "center",
-      marginBottom: 25,
-    },
+  errorContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 25,
+  },
 
-    image: {
-      width: "100%",
-      height: 350,
-      borderRadius: 20,
-      backgroundColor: "#E8F1E8",
-      marginBottom: 25,
-    },
+  centerContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-    resultCard: {
-      backgroundColor: "#FFFFFF",
-      borderRadius: 20,
-      padding: 25,
-      alignItems: "center",
-      elevation: 4,
-      shadowColor: "#000000",
-      shadowOpacity: 0.12,
-      shadowRadius: 8,
-      shadowOffset: {
-        width: 0,
-        height: 3,
-      },
-    },
+  previewImage: {
+    width: "90%",
+    height: 300,
+    borderRadius: 20,
+    backgroundColor: "#E8F1E8",
+    marginBottom: 25,
+  },
 
-    resultLabel: {
-      fontSize: 18,
-      color: "#666666",
-      marginBottom: 12,
-    },
+  errorImage: {
+    width: "80%",
+    height: 180,
+    borderRadius: 18,
+    backgroundColor: "#E8F1E8",
+    marginTop: 20,
+  },
 
-    prediction: {
-      fontSize: 30,
-      color: "#2D7D32",
-      fontWeight: "600",
-      textAlign: "center",
-    },
+  loader: {
+    marginBottom: 15,
+  },
 
-    confidence: {
-      fontSize: 20,
-      color: "#222222",
-      marginTop: 18,
-    },
+  loadingTitle: {
+    fontSize: 25,
+    fontWeight: "700",
+    color: "#2D7D32",
+    marginBottom: 8,
+  },
 
-    progressBackground: {
-      width: "100%",
-      height: 10,
-      backgroundColor: "#E0E0E0",
-      borderRadius: 10,
-      marginTop: 20,
-      overflow: "hidden",
-    },
+  loadingText: {
+    fontSize: 16,
+    color: "#777777",
+    textAlign: "center",
+  },
 
-    progressFill: {
-      height: "100%",
-      backgroundColor: "#2D7D32",
-      borderRadius: 10,
-    },
+  errorIcon: {
+    width: 65,
+    height: 65,
+    borderRadius: 33,
+    backgroundColor: "#E57373",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 18,
+  },
 
-    infoCard: {
-      backgroundColor: "#FFFFFF",
-      borderRadius: 18,
-      padding: 20,
-      marginTop: 20,
-      elevation: 3,
-    },
+  errorIconText: {
+    color: "#FFFFFF",
+    fontSize: 40,
+    fontWeight: "700",
+  },
 
-    sectionTitle: {
-      fontSize: 20,
-      fontWeight: "600",
-      color: "#333333",
-      marginBottom: 15,
-    },
+  errorTitle: {
+    fontSize: 27,
+    fontWeight: "700",
+    color: "#333333",
+    textAlign: "center",
+    marginBottom: 12,
+  },
 
-    infoRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      paddingVertical: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: "#EEEEEE",
-    },
+  errorMessage: {
+    fontSize: 17,
+    lineHeight: 25,
+    color: "#555555",
+    textAlign: "center",
+    marginHorizontal: 15,
+  },
 
-    infoLabel: {
-      color: "#666666",
-      fontSize: 16,
-    },
+  errorHint: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: "#777777",
+    textAlign: "center",
+    marginTop: 10,
+    marginHorizontal: 20,
+  },
 
-    infoValue: {
-      color: "#222222",
-      fontSize: 16,
-      fontWeight: "600",
-    },
+  primaryButton: {
+    width: "90%",
+    minHeight: 58,
+    backgroundColor: "#2D7D32",
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 25,
+  },
 
-    topCard: {
-      backgroundColor: "#FFFFFF",
-      borderRadius: 18,
-      padding: 20,
-      marginTop: 20,
-      elevation: 3,
-    },
+  primaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "700",
+  },
 
-    topRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: "#EEEEEE",
-    },
+  secondaryButton: {
+    minHeight: 50,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+    paddingHorizontal: 20,
+  },
 
-    rankCircle: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: "#2D7D32",
-      alignItems: "center",
-      justifyContent: "center",
-      marginRight: 12,
-    },
+  secondaryButtonText: {
+    color: "#2D7D32",
+    fontSize: 16,
+    fontWeight: "600",
+  },
 
-    rankText: {
-      color: "#FFFFFF",
-      fontWeight: "bold",
-    },
-
-    topLabel: {
-      flex: 1,
-      fontSize: 15,
-      color: "#333333",
-    },
-
-    topConfidence: {
-      fontSize: 15,
-      fontWeight: "600",
-      color: "#2D7D32",
-      marginLeft: 8,
-    },
-
-    primaryButton: {
-      backgroundColor: "#2D7D32",
-      borderRadius: 14,
-      minHeight: 58,
-      alignItems: "center",
-      justifyContent: "center",
-      marginTop: 25,
-      paddingHorizontal: 20,
-    },
-
-    primaryButtonText: {
-      color: "#FFFFFF",
-      fontSize: 18,
-      fontWeight: "bold",
-    },
-
-    loadingContainer: {
-      flex: 1,
-      backgroundColor: "#F7F9F8",
-      justifyContent: "center",
-      alignItems: "center",
-      padding: 30,
-    },
-
-    loadingText: {
-      marginTop: 20,
-      fontSize: 22,
-      fontWeight: "600",
-      color: "#2D7D32",
-    },
-
-    loadingSubText: {
-      marginTop: 8,
-      fontSize: 15,
-      color: "#777777",
-      textAlign: "center",
-    },
-
-    invalidContainer: {
-      flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
-      padding: 30,
-    },
-
-    invalidIcon: {
-      width: 70,
-      height: 70,
-      borderRadius: 35,
-      backgroundColor: "#E57373",
-      color: "#FFFFFF",
-      textAlign: "center",
-      textAlignVertical: "center",
-      fontSize: 45,
-      fontWeight: "bold",
-      marginBottom: 25,
-    },
-
-    invalidTitle: {
-      fontSize: 27,
-      fontWeight: "600",
-      color: "#333333",
-      textAlign: "center",
-    },
-
-    invalidText: {
-      fontSize: 17,
-      color: "#555555",
-      textAlign: "center",
-      lineHeight: 25,
-      marginTop: 15,
-    },
-
-    invalidHint: {
-      fontSize: 15,
-      color: "#777777",
-      textAlign: "center",
-      lineHeight: 22,
-      marginTop: 10,
-    },
-  });
+  title: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#2D7D32",
+    marginBottom: 20,
+  },
+});
