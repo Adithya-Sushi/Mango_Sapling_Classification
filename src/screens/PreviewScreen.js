@@ -16,6 +16,8 @@ import {
 } from "react-native";
 
 import { predictMango } from "../ai/runModel";
+import { MODELS } from "../ai/modelConfig";
+import { useModelSelection } from "../context/ModelContext";
 
 export default function PreviewScreen({
   route,
@@ -23,6 +25,12 @@ export default function PreviewScreen({
 }) {
   const image =
     route?.params?.image;
+
+  const { selectedModelKey } =
+    useModelSelection();
+
+  const modelConfig =
+    MODELS[selectedModelKey];
 
   const [loading, setLoading] =
     useState(true);
@@ -61,7 +69,8 @@ export default function PreviewScreen({
 
         const prediction =
           await predictMango(
-            image
+            image,
+            selectedModelKey
           );
 
         setResult(prediction);
@@ -112,7 +121,7 @@ export default function PreviewScreen({
         <Text
           style={styles.loadingSubText}
         >
-          MobileNetV2 is processing the image
+          {modelConfig.name} is processing the image
         </Text>
       </SafeAreaView>
     );
@@ -257,7 +266,7 @@ export default function PreviewScreen({
             <Text
               style={styles.infoValue}
             >
-              MobileNetV2
+              {modelConfig.name}
             </Text>
           </View>
 
