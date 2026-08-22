@@ -65,15 +65,6 @@ export default function HomeScreen({ navigation }) {
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.smallButton}
-        onPress={() => navigation.navigate("History")}
-      >
-        <Text style={styles.smallButtonText}>
-          History
-        </Text>
-      </TouchableOpacity>
-
       {/* Advanced dropdown */}
       <TouchableOpacity
         style={styles.smallButton}
@@ -135,6 +126,15 @@ export default function HomeScreen({ navigation }) {
           })}
         </View>
       )}
+
+      <TouchableOpacity
+        style={styles.smallButton}
+        onPress={() => navigation.navigate("History")}
+      >
+        <Text style={styles.smallButtonText}>
+          History
+        </Text>
+      </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.smallButton}
