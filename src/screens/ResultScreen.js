@@ -109,7 +109,7 @@ export default function ResultScreen({
             </Text>
 
             <Text style={styles.rowValue}>
-              MobileNetV2
+              {result.model || "MobileNetV2"}
             </Text>
           </View>
 

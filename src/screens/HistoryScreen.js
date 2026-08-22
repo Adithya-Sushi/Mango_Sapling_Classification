@@ -91,6 +91,7 @@ export default function HistoryScreen({
           item.topPredictions || [],
         inferenceTime:
           item.inferenceTime || 0,
+        model: item.model || "MobileNetV2",
         valid: true,
       },
     });

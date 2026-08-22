@@ -10,7 +10,9 @@ import {
   View,
 } from "react-native";
 
+import { MODELS } from "../ai/modelConfig";
 import { predictMango } from "../ai/runModel";
+import { useModelSelection } from "../context/ModelContext";
 import { savePrediction } from "../storage/history";
 
 export default function PreviewScreen({
@@ -18,6 +20,9 @@ export default function PreviewScreen({
   navigation,
 }) {
   const image = route?.params?.image;
+
+  const { selectedModelKey } = useModelSelection();
+  const modelConfig = MODELS[selectedModelKey] || MODELS.mobilenetv2;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -40,10 +45,11 @@ export default function PreviewScreen({
       console.log("================================");
       console.log("PREVIEW SCREEN");
       console.log("Image:", image);
+      console.log("Model:", modelConfig?.name || selectedModelKey);
       console.log("Starting prediction...");
       console.log("================================");
 
-      const result = await predictMango(image);
+      const result = await predictMango(image, selectedModelKey);
 
       console.log("================================");
       console.log("PREDICTION RESULT");
@@ -79,7 +85,10 @@ export default function PreviewScreen({
 
         const savedPrediction = await savePrediction({
           image: image,
-          result: result,
+          result: {
+            ...result,
+            model: modelConfig?.name || "MobileNetV2",
+          },
         });
 
         if (savedPrediction) {
@@ -110,7 +119,10 @@ export default function PreviewScreen({
 
       navigation.replace("Result", {
         image: image,
-        result: result,
+        result: {
+          ...result,
+          model: modelConfig?.name || "MobileNetV2",
+        },
       });
     } catch (error) {
       console.log("================================");
@@ -158,7 +170,7 @@ export default function PreviewScreen({
           </Text>
 
           <Text style={styles.loadingText}>
-            MobileNetV2 is processing your image...
+            {modelConfig?.name || "MobileNetV2"} is processing your image...
           </Text>
         </View>
       </SafeAreaView>

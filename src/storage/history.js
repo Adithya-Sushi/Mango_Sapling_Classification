@@ -91,7 +91,7 @@ export async function savePrediction({
       confidence: result.confidence,
       topPredictions: result.topPredictions || [],
       inferenceTime: result.inferenceTime || 0,
-      model: "MobileNetV2",
+      model: result.model || "MobileNetV2",
       timestamp: new Date().toISOString(),
     };
 

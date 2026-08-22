@@ -1,35 +1,58 @@
 import { loadTensorflowModel } from "react-native-fast-tflite";
 
-let model = null;
-let modelPromise = null;
+import {
+  DEFAULT_MODEL_KEY,
+  MODELS,
+} from "./modelConfig";
 
-export async function getModel() {
-  if (model) {
-    console.log("Using cached TensorFlow Lite model");
-    return model;
+// Keyed cache: { mobilenetv2: model, densenet121: model }
+const modelCache = {};
+const loadingPromises = {};
+
+export async function getModel(
+  modelKey = DEFAULT_MODEL_KEY
+) {
+  if (modelCache[modelKey]) {
+    console.log(
+      `Using cached model: ${modelKey}`
+    );
+    return modelCache[modelKey];
   }
 
-  if (modelPromise) {
-    console.log("Model is already loading...");
-    return modelPromise;
+  if (loadingPromises[modelKey]) {
+    console.log(
+      `Model ${modelKey} is already loading...`
+    );
+    return loadingPromises[modelKey];
   }
 
-  console.log("Loading Tensorflow Lite Model 7");
+  const config = MODELS[modelKey];
 
-  modelPromise = loadTensorflowModel(
-    require("../../assets/model/mobilenetv2.tflite"),
-    []
+  if (!config) {
+    throw new Error(
+      `Unknown model key: ${modelKey}`
+    );
+  }
+
+  console.log(
+    `Loading TFLite model: ${config.name}`
   );
 
+  loadingPromises[modelKey] =
+    loadTensorflowModel(config.asset, []);
+
   try {
-    model = await modelPromise;
+    const model =
+      await loadingPromises[modelKey];
+
+    modelCache[modelKey] = model;
 
     console.log(
       "=============================="
     );
 
     console.log(
-      "✅ Model Loaded Successfully"
+      `✅ ${config.name} Loaded Successfully`
     );
 
     console.log("MODEL INPUTS:");
@@ -47,7 +70,10 @@ export async function getModel() {
       console.log(`Output ${index}:`);
       console.log("Name:", output.name);
       console.log("Shape:", output.shape);
-      console.log("Data Type:", output.dataType);
+      console.log(
+        "Data Type:",
+        output.dataType
+      );
     });
 
     console.log(
@@ -56,11 +82,11 @@ export async function getModel() {
 
     return model;
   } catch (error) {
-    modelPromise = null;
-    model = null;
+    delete loadingPromises[modelKey];
+    delete modelCache[modelKey];
 
     console.log(
-      "❌ Model Loading Error:",
+      `❌ ${config.name} Loading Error:`,
       error
     );
 

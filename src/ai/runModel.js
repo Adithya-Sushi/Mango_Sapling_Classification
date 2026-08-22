@@ -6,6 +6,7 @@ import {
 import * as FileSystem from "expo-file-system/legacy";
 
 import { getModel } from "./model";
+import { DEFAULT_MODEL_KEY } from "./modelConfig";
 
 const LABELS = [
   "MV10_Cherukurasam",
@@ -101,7 +102,7 @@ function isLikelyMangoLeaf(pixels) {
   return looksLikeLeaf;
 }
 
-export async function predictMango(imageUri) {
+export async function predictMango(imageUri, modelKey = DEFAULT_MODEL_KEY) {
   console.log("================================");
   console.log("STEP 1: Starting prediction");
   console.log("Image URI:", imageUri);
@@ -111,9 +112,9 @@ export async function predictMango(imageUri) {
       throw new Error("No image URI received");
     }
 
-    console.log("STEP 2: Loading model");
+    console.log("STEP 2: Loading model:", modelKey);
 
-    const model = await getModel();
+    const model = await getModel(modelKey);
 
     console.log("STEP 3: Model ready");
 
@@ -489,6 +490,7 @@ export async function predictMango(imageUri) {
       confidence,
       inferenceTime,
       topPredictions,
+      modelKey,
     };
   } catch (error) {
     console.log(
