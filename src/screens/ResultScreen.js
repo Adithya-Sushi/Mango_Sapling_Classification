@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Image,
   SafeAreaView,
@@ -7,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import * as Speech from "expo-speech";
 
 export default function ResultScreen({
   route,
@@ -42,6 +44,36 @@ export default function ResultScreen({
 
   const confidence =
     Number(result.confidence) || 0;
+
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      Speech.stop();
+    };
+  }, []);
+
+  const handleSpeak = () => {
+    if (isSpeaking) {
+      Speech.stop();
+      setIsSpeaking(false);
+      return;
+    }
+
+    const readableName = result?.prediction
+      ? result.prediction.replace(/_/g, " ")
+      : "Unknown variety";
+    const textToSpeak = `The predicted mango leaf variety is ${readableName}, with ${confidence.toFixed(1)} percent confidence.`;
+
+    Speech.speak(textToSpeak, {
+      pitch: 1.0,
+      rate: 0.9,
+      onStart: () => setIsSpeaking(true),
+      onDone: () => setIsSpeaking(false),
+      onStopped: () => setIsSpeaking(false),
+      onError: () => setIsSpeaking(false),
+    });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -182,6 +214,24 @@ export default function ResultScreen({
             )
           )}
         </View>
+
+        <TouchableOpacity
+          style={[
+            styles.speakButton,
+            isSpeaking && styles.speakButtonActive,
+          ]}
+          onPress={handleSpeak}
+          activeOpacity={0.8}
+        >
+          <Text
+            style={[
+              styles.speakButtonText,
+              isSpeaking && styles.speakButtonTextActive,
+            ]}
+          >
+            {isSpeaking ? "⏹  Stop Reading" : "🔊  Read Result Aloud"}
+          </Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.button}
@@ -359,13 +409,39 @@ const styles =
       marginLeft: 8,
     },
 
+    speakButton: {
+      backgroundColor: "#E8F5E9",
+      borderWidth: 1.5,
+      borderColor: "#2D7D32",
+      minHeight: 56,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 20,
+    },
+
+    speakButtonActive: {
+      backgroundColor: "#FFEBEE",
+      borderColor: "#D32F2F",
+    },
+
+    speakButtonText: {
+      color: "#2D7D32",
+      fontSize: 16,
+      fontWeight: "700",
+    },
+
+    speakButtonTextActive: {
+      color: "#D32F2F",
+    },
+
     button: {
       backgroundColor: "#2D7D32",
       minHeight: 58,
       borderRadius: 14,
       alignItems: "center",
       justifyContent: "center",
-      marginTop: 24,
+      marginTop: 14,
     },
 
     buttonText: {
